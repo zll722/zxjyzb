@@ -1,0 +1,55 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: live-platform
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/edu_live?useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    hikari:
+      max-lifetime: 600000
+      connection-timeout: 30000
+      idle-timeout: 300000
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deletedAt
+      logic-delete-value: NOW()
+      logic-not-delete-value: 'NULL'
+
+jwt:
+  secret: edu-live-platform-secret-key-2026-minimum-32-bytes
+  expiration: 86400000
+
+file:
+  upload-path: ./uploads
+  avatar-path: ${file.upload-path}/avatar
+  video-path: ${file.upload-path}/video
+  replay-path: ${file.upload-path}/replay
+  homework-path: ${file.upload-path}/homework
+  homework-max-size: 10485760
+
+agora:
+  # 请前往声网国内控制台 https://console.shengwang.cn/ 创建项目（Secured mode），填入 App ID 和 App Certificate
+  app-id: ${AGORA_APP_ID:bb6b9586cc6c42b48f1df1a945f1e40e}
+  app-certificate: ${AGORA_APP_CERTIFICATE:c3b13b56438243e0bd8ad3683c135e41}
+  token-expiration-seconds: 86400
+
+knife4j:
+  enable: true
