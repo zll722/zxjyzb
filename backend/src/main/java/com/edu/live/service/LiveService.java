@@ -36,6 +36,8 @@ public interface LiveService {
 
     LivePoll createPoll(Long teacherId, Long roomId, LivePollRequest request);
 
+    void dismissPoll(Long teacherId, Long pollId);
+
     List<LivePollVO> listPolls(Long roomId, Long userId);
 
     LivePollVO pollDetail(Long pollId, Long userId);

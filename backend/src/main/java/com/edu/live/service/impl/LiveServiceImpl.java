@@ -109,6 +109,7 @@ public class LiveServiceImpl implements LiveService {
         room.setOnlineCount(0);
         liveRoomMapper.updateById(room);
         liveReplayService.ensureReplayForEndedRoom(room.getId());
+        liveWebSocketHandler.broadcast(room.getId(), Map.of("type", "room_ended", "roomId", room.getId()));
         return room;
     }
 
@@ -123,23 +124,27 @@ public class LiveServiceImpl implements LiveService {
         room.setOnlineCount(0);
         liveRoomMapper.updateById(room);
         liveReplayService.ensureReplayForEndedRoom(room.getId());
+        liveWebSocketHandler.broadcast(roomId, Map.of("type", "room_ended", "roomId", roomId));
     }
 
     @Override
     public LiveChat sendChat(Long userId, Long roomId, LiveMessageRequest request) {
         requireRoom(roomId);
         rejectBlockedContent(request.getContent());
+        String content = escapeHtml(request.getContent());
+        User user = userMapper.selectById(userId);
         LiveChat chat = new LiveChat();
         chat.setRoomId(roomId);
         chat.setUserId(userId);
-        chat.setMessage(request.getContent());
+        chat.setMessage(content);
         liveChatMapper.insert(chat);
         // 广播聊天消息给房间内所有 WebSocket 连接
         liveWebSocketHandler.broadcast(roomId, java.util.Map.of(
                 "type", "chat",
                 "roomId", roomId,
                 "userId", userId,
-                "content", request.getContent()
+                "username", user == null ? "匿名" : user.getUsername(),
+                "content", content
         ));
         return chat;
     }
@@ -148,12 +153,14 @@ public class LiveServiceImpl implements LiveService {
     public LiveBarrage sendBarrage(Long userId, Long roomId, LiveMessageRequest request) {
         requireRoom(roomId);
         rejectBlockedContent(request.getContent());
+        String content = escapeHtml(request.getContent());
+        User user = userMapper.selectById(userId);
         LiveBarrage barrage = new LiveBarrage();
         barrage.setRoomId(roomId);
         barrage.setUserId(userId);
-        barrage.setContent(request.getContent());
+        barrage.setContent(content);
         liveBarrageMapper.insert(barrage);
-        liveWebSocketHandler.broadcast(roomId, java.util.Map.of("type", "barrage", "roomId", roomId, "userId", userId, "content", request.getContent()));
+        liveWebSocketHandler.broadcast(roomId, java.util.Map.of("type", "barrage", "roomId", roomId, "userId", userId, "username", user == null ? "匿名" : user.getUsername(), "content", content));
         return barrage;
     }
 
@@ -168,6 +175,14 @@ public class LiveServiceImpl implements LiveService {
         LivePollVO pollVO = toPollVO(poll, null);
         liveWebSocketHandler.broadcast(roomId, Map.of("type", "poll", "roomId", roomId, "poll", pollVO));
         return poll;
+    }
+
+    @Override
+    public void dismissPoll(Long teacherId, Long pollId) {
+        LivePoll poll = requirePoll(pollId);
+        requireTeacherRoom(teacherId, poll.getRoomId());
+        liveWebSocketHandler.broadcast(poll.getRoomId(),
+                Map.of("type", "poll_dismiss", "roomId", poll.getRoomId(), "pollId", pollId));
     }
 
     @Override
@@ -286,6 +301,17 @@ public class LiveServiceImpl implements LiveService {
                 .ifPresent(keyword -> {
                     throw new BusinessException(400, "内容包含屏蔽词，发送失败");
                 });
+    }
+
+    private String escapeHtml(String content) {
+        if (content == null) {
+            return "";
+        }
+        return content.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private LiveRoom requireRoom(Long roomId) {

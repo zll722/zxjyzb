@@ -106,6 +106,13 @@ public class LiveController {
         return Result.success(liveService.pollResults(id, user == null ? null : user.getId()));
     }
 
+    @PostMapping("/polls/{id}/dismiss")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<Void> dismissPoll(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        liveService.dismissPoll(user.getId(), id);
+        return Result.success();
+    }
+
     @PostMapping("/polls/{id}/vote")
     @PreAuthorize("hasRole('STUDENT')")
     public Result<LivePollVote> vote(@AuthenticationPrincipal User user, @PathVariable Long id, @Valid @RequestBody LiveVoteRequest request) {

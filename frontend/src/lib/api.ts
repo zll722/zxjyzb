@@ -64,6 +64,27 @@ export interface Course {
   createdAt?: string
 }
 
+function repairMojibake(value?: string) {
+  if (!value) return value
+  return value.includes('???') ? value.replace(/\?{2,}/g, '待完善') : value
+}
+
+function normalizeCourse(course: Course) {
+  return {
+    ...course,
+    title: repairMojibake(course.title) || course.title,
+    intro: repairMojibake(course.intro),
+  }
+}
+
+function normalizeLiveRoom(room: LiveRoom) {
+  return {
+    ...room,
+    title: repairMojibake(room.title) || room.title,
+    intro: repairMojibake(room.intro),
+  }
+}
+
 export interface PageResult<T> {
   records: T[]
   total: number
@@ -620,10 +641,13 @@ function toSearch(params: Record<string, unknown>) {
 
 export const courseApi = {
   page(params: { current?: number; size?: number; categoryId?: number | ''; keyword?: string; status?: string; teacherId?: number } = {}) {
-    return request<PageResult<Course>>(`/courses?${toSearch(params)}`)
+    return request<PageResult<Course>>(`/courses?${toSearch(params)}`).then((page) => ({
+      ...page,
+      records: page.records.map(normalizeCourse),
+    }))
   },
   detail(id: number) {
-    return request<Course>(`/courses/${id}`)
+    return request<Course>(`/courses/${id}`).then(normalizeCourse)
   },
   create(payload: { title: string; cover?: string; intro?: string; categoryId: number; price: number }) {
     return request<Course>('/courses', { method: 'POST', body: JSON.stringify(payload) })
@@ -690,10 +714,13 @@ export const replayApi = {
 
 export const liveApi = {
   page(params: { current?: number; size?: number; status?: string; teacherId?: number } = {}) {
-    return request<PageResult<LiveRoom>>(`/live/rooms?${toSearch(params)}`)
+    return request<PageResult<LiveRoom>>(`/live/rooms?${toSearch(params)}`).then((page) => ({
+      ...page,
+      records: page.records.map(normalizeLiveRoom),
+    }))
   },
   detail(id: number) {
-    return request<LiveRoom>(`/live/rooms/${id}`)
+    return request<LiveRoom>(`/live/rooms/${id}`).then(normalizeLiveRoom)
   },
   create(payload: { title: string; intro?: string; cover?: string; scheduledTime?: string }) {
     return request<LiveRoom>('/live/rooms', { method: 'POST', body: JSON.stringify(payload) })
@@ -721,6 +748,9 @@ export const liveApi = {
   },
   pollResults(id: number) {
     return request<LivePollDetail>(`/live/polls/${id}/results`)
+  },
+  dismissPoll(id: number) {
+    return request<void>(`/live/polls/${id}/dismiss`, { method: 'POST' })
   },
   vote(pollId: number, optionIndex: number) {
     return request<void>(`/live/polls/${pollId}/vote`, { method: 'POST', body: JSON.stringify({ optionIndex }) })

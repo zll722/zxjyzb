@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -82,7 +83,7 @@ public class CourseServiceImpl implements CourseService {
                 .orderByDesc(Course::getCreatedAt);
         Page<Course> page = courseMapper.selectPage(new Page<>(current, size), wrapper);
         Page<CourseVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        result.setRecords(toVOList(page.getRecords(), userId, false));
+        result.setRecords(toVOList(page.getRecords(), userId, teacherId != null));
         return result;
     }
 
@@ -266,8 +267,15 @@ public class CourseServiceImpl implements CourseService {
             CourseFavorite favorite = new CourseFavorite();
             favorite.setUserId(userId);
             favorite.setCourseId(courseId);
-            favoriteMapper.insert(favorite);
+            try {
+                favoriteMapper.insert(favorite);
+            } catch (DuplicateKeyException e) {
+                return;
+            }
             Course course = courseMapper.selectById(courseId);
+            if (course == null) {
+                throw new BusinessException(404, "课程不存在");
+            }
             course.setFavoritesCount(course.getFavoritesCount() + 1);
             courseMapper.updateById(course);
         }

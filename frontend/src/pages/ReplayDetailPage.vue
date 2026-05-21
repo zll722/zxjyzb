@@ -1,8 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Clapperboard } from 'lucide-vue-next'
+import { Clapperboard, ChevronLeft } from 'lucide-vue-next'
 import { replayApi, type LiveReplay } from '@/lib/api'
+import AppLayout from '@/components/layout/AppLayout.vue'
 
 const route = useRoute()
 const replay = ref<LiveReplay | null>(null)
@@ -15,33 +16,56 @@ onMounted(load)
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-950 px-6 py-8 text-white">
-    <div v-if="replay" class="mx-auto max-w-7xl">
-      <nav class="mb-8 flex items-center justify-between">
-        <RouterLink to="/replays" class="text-sm text-cyan-200">返回回放中心</RouterLink>
-        <RouterLink to="/dashboard" class="rounded-full border border-white/10 px-5 py-2 text-sm hover:bg-white/10">工作台</RouterLink>
-      </nav>
-      <section class="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div class="rounded-[2rem] border border-white/10 bg-black p-4 shadow-2xl">
-          <video v-if="replay.playUrl" class="aspect-video w-full rounded-[1.5rem] bg-black" :src="replay.playUrl" controls preload="metadata" />
-          <div v-else class="grid aspect-video place-items-center rounded-[1.5rem] bg-gradient-to-br from-slate-900 to-cyan-950 text-center">
+  <AppLayout>
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <RouterLink to="/replays" class="mb-6 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-primary-600">
+        <ChevronLeft class="h-4 w-4" />返回回放中心
+      </RouterLink>
+
+      <div v-if="replay" class="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <!-- Video player -->
+        <div class="overflow-hidden rounded-xl border border-border bg-black shadow-sm">
+          <video v-if="replay.playUrl" class="aspect-video w-full bg-black" :src="replay.playUrl" controls preload="metadata" />
+          <div v-else class="grid aspect-video place-items-center bg-neutral-950 text-center">
             <div>
-              <Clapperboard class="mx-auto h-16 w-16 text-cyan-200" />
-              <p class="mt-5 text-slate-300">教师尚未上传回放视频</p>
+              <Clapperboard class="mx-auto h-14 w-14 text-neutral-600" />
+              <p class="mt-4 text-sm text-neutral-400">教师尚未上传回放视频</p>
             </div>
           </div>
         </div>
-        <aside class="rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur">
-          <p class="text-sm text-cyan-200">{{ replay.status }} · {{ replay.roomTitle || '独立回放' }}</p>
-          <h1 class="mt-3 text-3xl font-black">{{ replay.title }}</h1>
-          <p class="mt-4 text-sm leading-7 text-slate-300">{{ replay.intro || '暂无简介' }}</p>
-          <div class="mt-8 space-y-3 rounded-[1.5rem] bg-slate-900 p-5 text-sm text-slate-300">
-            <p>讲师：{{ replay.teacherName || '未知' }}</p>
-            <p>文件大小：{{ replay.fileSize ? `${(replay.fileSize / 1024 / 1024).toFixed(2)} MB` : '暂无文件' }}</p>
-            <p>发布时间：{{ replay.createdAt || '-' }}</p>
+
+        <!-- Meta info -->
+        <aside class="rounded-xl border border-border bg-white p-5 shadow-sm">
+          <div class="flex items-center gap-2">
+            <span class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+              :class="{
+                'bg-success-bg text-success': replay.status === 'PUBLISHED',
+                'bg-neutral-100 text-neutral-500': replay.status !== 'PUBLISHED',
+              }">
+              {{ replay.status }}
+            </span>
+            <span v-if="replay.roomTitle" class="text-xs text-neutral-400">{{ replay.roomTitle }}</span>
           </div>
+          <h1 class="mt-3 text-xl font-bold text-neutral-900">{{ replay.title }}</h1>
+          <p class="mt-3 text-sm leading-7 text-neutral-500">{{ replay.intro || '暂无简介' }}</p>
+          <dl class="mt-6 space-y-3 rounded-lg bg-neutral-100 p-4 text-sm">
+            <div class="flex justify-between">
+              <dt class="text-neutral-500">讲师</dt>
+              <dd class="font-medium text-neutral-800">{{ replay.teacherName || '未知' }}</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-neutral-500">文件大小</dt>
+              <dd class="font-medium text-neutral-800">{{ replay.fileSize ? `${(replay.fileSize / 1024 / 1024).toFixed(2)} MB` : '暂无文件' }}</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-neutral-500">发布时间</dt>
+              <dd class="font-medium text-neutral-800">{{ replay.createdAt || '-' }}</dd>
+            </div>
+          </dl>
         </aside>
-      </section>
+      </div>
+
+      <div v-else class="py-20 text-center text-sm text-neutral-400">加载中...</div>
     </div>
-  </main>
+  </AppLayout>
 </template>

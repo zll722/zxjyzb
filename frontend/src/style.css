@@ -2,29 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Design Tokens — EduLive Design System
+   Primary #5B5BF5 · 4px grid · 7-step type scale
+   ============================================================ */
 :root {
-  font-family: 'Microsoft YaHei', 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
-  color: #e2e8f0;
-  background: #020617;
+  /* --- Primary --- */
+  --p-50:  #F0F0FE;
+  --p-100: #E0E0FD;
+  --p-200: #C4C4FB;
+  --p-300: #A3A3F8;
+  --p-400: #8181F6;
+  --p-500: #6E6EF8;   /* hover */
+  --p-600: #5B5BF5;   /* brand / main CTA */
+  --p-700: #4747D4;
+  --p-800: #3535A8;
+  --p-900: #242478;
+
+  /* --- Neutral --- */
+  --n-0:   #FFFFFF;
+  --n-50:  #F8FAFC;   /* page background */
+  --n-100: #F1F5F9;   /* muted / hover */
+  --n-200: #E2E8F0;   /* border */
+  --n-300: #CBD5E1;
+  --n-400: #94A3B8;   /* text-tertiary */
+  --n-500: #64748B;
+  --n-600: #475569;   /* text-secondary */
+  --n-700: #334155;
+  --n-800: #1E293B;
+  --n-900: #0F172A;   /* text-primary */
+
+  /* --- Semantic (status use only — never decoration) --- */
+  --success:  #10B981;
+  --success-bg: #ECFDF5;
+  --warning:  #F59E0B;
+  --warning-bg: #FFFBEB;
+  --danger:   #EF4444;
+  --danger-bg: #FEF2F2;
+  --info:     #3B82F6;
+  --info-bg:  #EFF6FF;
+
+  /* --- Shadows (3 levels only) --- */
+  --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-md: 0 4px 12px rgba(15,23,42,0.06);
+  --shadow-lg: 0 12px 32px rgba(15,23,42,0.10);
+
+  /* --- Motion --- */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration: 200ms;
+
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
+  color: var(--n-900);
+  background: var(--n-50);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ---- Global resets ---- */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--n-50);
+  line-height: 1.6;
 }
 
-button,
-a,
-input,
-select {
-  font: inherit;
+h1, h2, h3, h4, h5, h6 { line-height: 1.3; font-weight: 600; }
+
+button, a, input, select, textarea { font: inherit; }
+a { color: inherit; text-decoration: none; }
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--n-300); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--n-400); }
+
+/* ---- Focus ring ---- */
+:focus-visible {
+  outline: 2px solid var(--p-600);
+  outline-offset: 2px;
+}
+
+/* ---- Utility: LIVE pulse dot ---- */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.4); }
+}
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--danger);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- Top nav link: underline active state ---- */
+.nav-link--active {
+  color: var(--p-700) !important;
+}
+.nav-link--active .nav-underline {
+  opacity: 1 !important;
+}
+.nav-link:hover .nav-underline {
+  opacity: 0.35;
+}
+
+/* ---- Utility: card hover float ---- */
+.card-hover {
+  transition: box-shadow var(--duration) var(--ease-standard),
+              transform   var(--duration) var(--ease-standard);
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }

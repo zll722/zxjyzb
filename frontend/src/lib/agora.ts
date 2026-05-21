@@ -7,10 +7,12 @@ import AgoraRTC, {
   type IMicrophoneAudioTrack,
   type UID,
 } from 'agora-rtc-sdk-ng'
+export type { IAgoraRTCClient }
 import type { LiveRoom } from '@/lib/api'
 
 // 声网国内版（shengwang.cn）：强制使用中国大陆节点
 AgoraRTC.setArea({ areaCode: [AREAS.CHINA] })
+if (import.meta.env.PROD) AgoraRTC.setLogLevel(3)
 
 export interface TeacherAgoraSession {
   client: IAgoraRTCClient
@@ -62,7 +64,7 @@ export async function createTeacherSession(
   const uid = await client.join(config.appId, config.channel, config.token)
   const cameras = await AgoraRTC.getCameras().catch(() => [])
   const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks()
-  videoTrack.play(videoContainer)
+  videoTrack.play(videoContainer, { mirror: false })
   await client.publish([audioTrack, videoTrack])
   const mediaTrack = videoTrack.getMediaStreamTrack()
   const settings = mediaTrack.getSettings()
@@ -85,16 +87,21 @@ export async function switchTeacherVideoSource(session: TeacherAgoraSession, sou
   session.cameraLabel = source === 'camera' ? mediaTrack.label || '未识别摄像头名称' : '屏幕共享'
   session.videoTrackState = mediaTrack.readyState
   session.videoResolution = settings.width && settings.height ? `${settings.width}×${settings.height}` : '分辨率未知'
-  nextTrack.play(videoContainer)
+  nextTrack.play(videoContainer, { mirror: false })
   await session.client.publish(nextTrack)
   return nextTrack
 }
 
-export async function createStudentSession(room: LiveRoom, onUserPublished: (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => Promise<void>) {
+export async function createStudentSession(
+  room: LiveRoom,
+  onUserPublished: (client: IAgoraRTCClient, user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => Promise<void>,
+) {
   const config = requireAgoraRoom(room)
   const client = createLiveClient()
-  client.on('user-published', onUserPublished)
-  await client.setClientRole('audience')
+  // Pass client explicitly so the callback never depends on an external ref that may not yet be set
+  client.on('user-published', (user, mediaType) => onUserPublished(client, user, mediaType))
+  // level 2 = ultra-low-latency interactive mode; required to call client.subscribe()
+  await client.setClientRole('audience', { level: 2 })
   const uid = await client.join(config.appId, config.channel, config.token)
   return { client, uid, cohosting: false }
 }

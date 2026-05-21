@@ -1,8 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { FileQuestion, Plus, Save, Trash2 } from 'lucide-vue-next'
 import { examApi, type Exam, type ExamQuestion } from '@/lib/api'
+import Empty from '@/components/Empty.vue'
 
 const route = useRoute()
 const exam = ref<Exam | null>(null)
@@ -13,11 +14,8 @@ const message = ref('')
 const error = ref('')
 const examId = computed(() => Number(route.params.id))
 
-function optionsFromText(text: string) {
-  return text.split('\n').map((item) => item.trim()).filter(Boolean)
-}
-
-function toPayload(item: { type: string; content: string; optionsText: string; answer: string; score: number; sort: number }) {
+function optionsFromText(text: string) { return text.split('\n').map((item) => item.trim()).filter(Boolean) }
+function toPayload(item: typeof form) {
   return { type: item.type, content: item.content, options: item.type === 'SHORT' ? [] : optionsFromText(item.optionsText), answer: item.answer, score: item.score, sort: item.sort }
 }
 
@@ -35,95 +33,107 @@ async function load() {
 }
 
 async function createQuestion() {
-  message.value = ''
-  error.value = ''
+  message.value = ''; error.value = ''
   try {
     await examApi.createQuestion(examId.value, toPayload(form))
-    form.content = ''
-    form.optionsText = ''
-    form.answer = ''
-    form.sort += 1
-    message.value = '题目已创建'
-    await load()
+    form.content = ''; form.optionsText = ''; form.answer = ''; form.sort += 1
+    message.value = '题目已创建'; await load()
   } catch (e) {
     error.value = e instanceof Error ? e.message : '创建失败'
   }
 }
 
 async function saveQuestion(question: ExamQuestion) {
-  await examApi.updateQuestion(examId.value, question.id, toPayload(editForms[question.id]))
-  message.value = '题目已保存'
-  await load()
+  await examApi.updateQuestion(examId.value, question.id, toPayload(editForms[question.id] as typeof form))
+  message.value = '题目已保存'; await load()
 }
 
 async function removeQuestion(questionId: number) {
   await examApi.removeQuestion(examId.value, questionId)
-  message.value = '题目已删除'
-  await load()
+  message.value = '题目已删除'; await load()
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-950 px-6 py-8 text-white">
-    <div class="mx-auto max-w-6xl">
-      <nav class="mb-8 flex items-center justify-between">
-        <RouterLink to="/teacher/exams" class="text-sm text-cyan-200">返回考试管理</RouterLink>
-        <RouterLink v-if="exam" :to="`/teacher/exams/${exam.id}/submissions`" class="rounded-full border border-white/10 px-5 py-2 text-sm hover:bg-white/10">查看提交</RouterLink>
-      </nav>
+  <div class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mb-6 flex items-center justify-end">
+        <RouterLink v-if="exam" :to="`/teacher/exams/${exam.id}/submissions`" class="rounded-lg border border-border px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">
+          查看提交
+        </RouterLink>
+      </div>
 
-      <section class="rounded-[2rem] border border-white/10 bg-white/8 p-8 backdrop-blur">
-        <p class="text-sm text-cyan-200">题目管理</p>
-        <h1 class="mt-2 text-4xl font-black">{{ exam?.title || '考试题目' }}</h1>
-        <p class="mt-4 text-slate-300">支持单选、多选、判断与简答题；客观题答案按选项文本匹配。</p>
-        <p v-if="message" class="mt-4 rounded-2xl bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100">{{ message }}</p>
-        <p v-if="error" class="mt-4 rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-100">{{ error }}</p>
-      </section>
+      <div class="mb-6">
+        <p class="text-sm font-medium text-primary-600">题目管理</p>
+        <h1 class="mt-1 text-2xl font-bold text-neutral-900">{{ exam?.title || '考试题目' }}</h1>
+        <p class="mt-1 text-sm text-neutral-400">支持单选、多选、判断与简答题；客观题答案按选项文本匹配。</p>
+      </div>
 
-      <form class="mt-8 rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur" @submit.prevent="createQuestion">
-        <div class="grid gap-4 md:grid-cols-[160px_1fr_120px_120px]">
-          <select v-model="form.type" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+      <div v-if="message" class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ message }}</div>
+      <div v-if="error" class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{{ error }}</div>
+
+      <!-- Add question form -->
+      <form class="mb-8 rounded-xl border border-border bg-white p-5 shadow-sm" @submit.prevent="createQuestion">
+        <h2 class="mb-4 font-semibold text-neutral-900">添加题目</h2>
+        <div class="grid gap-3 md:grid-cols-[140px_1fr_100px_80px]">
+          <select v-model="form.type" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400">
             <option value="SINGLE">单选题</option>
             <option value="MULTIPLE">多选题</option>
             <option value="JUDGE">判断题</option>
             <option value="SHORT">简答题</option>
           </select>
-          <input v-model="form.content" required class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="题干" />
-          <input v-model.number="form.score" required type="number" min="0.1" step="0.1" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="分值" />
-          <input v-model.number="form.sort" type="number" min="0" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="排序" />
+          <input v-model="form.content" required placeholder="题干内容" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
+          <input v-model.number="form.score" required type="number" min="0.1" step="0.1" placeholder="分值" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400" />
+          <input v-model.number="form.sort" type="number" min="0" placeholder="排序" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400" />
         </div>
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-          <textarea v-model="form.optionsText" rows="5" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="选项，每行一个；判断题可填：正确/错误" />
-          <textarea v-model="form.answer" required rows="5" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="答案；多选用英文逗号分隔" />
+        <div class="mt-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <label class="block text-xs font-medium text-neutral-500 mb-1">选项（每行一个）</label>
+            <textarea v-model="form.optionsText" rows="4" placeholder="选项，每行一个；判断题可填：正确/错误" class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition placeholder:text-neutral-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-neutral-500 mb-1">答案</label>
+            <textarea v-model="form.answer" required rows="4" placeholder="答案；多选用英文逗号分隔" class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition placeholder:text-neutral-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
+          </div>
         </div>
-        <button class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 font-bold text-slate-950"><Plus class="h-4 w-4" />添加题目</button>
+        <button type="submit" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700">
+          <Plus class="h-4 w-4" />添加题目
+        </button>
       </form>
 
-      <section class="mt-8 space-y-5">
-        <article v-for="question in questions" :key="question.id" class="rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur">
-          <div class="flex items-center justify-between gap-4">
-            <p class="inline-flex items-center gap-2 text-sm text-cyan-200"><FileQuestion class="h-4 w-4" />{{ question.type }} · {{ question.score }} 分</p>
-            <button class="inline-flex items-center gap-2 rounded-full border border-red-300/30 px-5 py-2 text-sm text-red-100" @click="removeQuestion(question.id)"><Trash2 class="h-4 w-4" />删除</button>
+      <!-- Question list -->
+      <div class="space-y-4">
+        <article v-for="(question, idx) in questions" :key="question.id" class="rounded-xl border border-border bg-white p-5 shadow-sm">
+          <div class="mb-3 flex items-center justify-between">
+            <span class="inline-flex items-center gap-1.5 text-xs text-neutral-400">
+              <FileQuestion class="h-3.5 w-3.5" />第 {{ idx + 1 }} 题 · {{ question.type }} · {{ question.score }} 分
+            </span>
+            <button class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" @click="removeQuestion(question.id)">
+              <Trash2 class="h-3.5 w-3.5" />删除
+            </button>
           </div>
-          <div class="mt-5 grid gap-4 md:grid-cols-[160px_1fr_120px_120px]">
-            <select v-model="editForms[question.id].type" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+          <div class="grid gap-3 md:grid-cols-[140px_1fr_100px_80px]">
+            <select v-model="editForms[question.id].type" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400">
               <option value="SINGLE">单选题</option>
               <option value="MULTIPLE">多选题</option>
               <option value="JUDGE">判断题</option>
               <option value="SHORT">简答题</option>
             </select>
-            <input v-model="editForms[question.id].content" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" />
-            <input v-model.number="editForms[question.id].score" type="number" min="0.1" step="0.1" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" />
-            <input v-model.number="editForms[question.id].sort" type="number" min="0" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" />
+            <input v-model="editForms[question.id].content" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
+            <input v-model.number="editForms[question.id].score" type="number" min="0.1" step="0.1" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400" />
+            <input v-model.number="editForms[question.id].sort" type="number" min="0" class="h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400" />
           </div>
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
-            <textarea v-model="editForms[question.id].optionsText" rows="4" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" />
-            <textarea v-model="editForms[question.id].answer" rows="4" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" />
+          <div class="mt-3 grid gap-3 md:grid-cols-2">
+            <textarea v-model="editForms[question.id].optionsText" rows="3" class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
+            <textarea v-model="editForms[question.id].answer" rows="3" class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
           </div>
-          <button class="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-bold text-slate-950" @click="saveQuestion(question)"><Save class="h-4 w-4" />保存题目</button>
+          <button class="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100" @click="saveQuestion(question)">
+            <Save class="h-4 w-4" />保存题目
+          </button>
         </article>
-      </section>
-    </div>
-  </main>
+      </div>
+
+      <Empty v-if="questions.length === 0" title="暂无题目，使用上方表单添加第一道题" :icon="FileQuestion" />
+  </div>
 </template>

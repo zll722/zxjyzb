@@ -1,6 +1,6 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { Megaphone, Plus, Search } from 'lucide-vue-next'
+import { Plus, Save, Search } from 'lucide-vue-next'
 import { announcementApi, type Announcement, type PageResult } from '@/lib/api'
 
 const filters = reactive({ keyword: '', type: '', status: '' })
@@ -13,191 +13,156 @@ const error = ref('')
 
 const typeLabels: Record<string, string> = { SYSTEM: '系统公告', COURSE: '课程通知', LIVE: '直播通知', EXAM: '考试提醒' }
 const statusLabels: Record<string, string> = { DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下线' }
+const inputCls = 'h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100'
 
 async function load(current = 1) {
-  loading.value = true
-  error.value = ''
+  loading.value = true; error.value = ''
   try {
     page.value = await announcementApi.adminPage({ current, size: page.value.size, ...filters })
     page.value.records.forEach((item) => {
       editForms[item.id] = { title: item.title, content: item.content, type: item.type || 'SYSTEM', status: item.status, pinned: item.pinned, syncMessage: false }
     })
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '公告列表加载失败'
-  } finally {
-    loading.value = false
-  }
+  } catch (err) { error.value = err instanceof Error ? err.message : '公告列表加载失败' }
+  finally { loading.value = false }
 }
 
 async function createAnnouncement() {
-  message.value = ''
-  error.value = ''
+  message.value = ''; error.value = ''
   try {
     await announcementApi.create(form)
-    form.title = ''
-    form.content = ''
-    form.type = 'SYSTEM'
-    form.status = 'DRAFT'
-    form.pinned = 0
-    form.syncMessage = false
-    message.value = '公告已创建'
-    await load(1)
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '创建失败'
-  }
+    Object.assign(form, { title: '', content: '', type: 'SYSTEM', status: 'DRAFT', pinned: 0, syncMessage: false })
+    message.value = '公告已创建'; await load(1)
+  } catch (err) { error.value = err instanceof Error ? err.message : '创建失败' }
 }
 
-async function save(item: Announcement) {
-  await announcementApi.update(item.id, editForms[item.id])
-  message.value = '公告已保存'
-  await load(page.value.current)
-}
+async function save(item: Announcement) { await announcementApi.update(item.id, editForms[item.id]); message.value = '公告已保存'; await load(page.value.current) }
+async function publish(id: number) { await announcementApi.publish(id, editForms[id]?.syncMessage || false); message.value = '公告已发布'; await load(page.value.current) }
+async function offline(id: number) { await announcementApi.offline(id); message.value = '公告已下线'; await load(page.value.current) }
+async function remove(id: number) { await announcementApi.remove(id); message.value = '公告已删除'; await load(page.value.current) }
 
-async function publish(id: number) {
-  await announcementApi.publish(id, editForms[id]?.syncMessage || false)
-  message.value = '公告已发布'
-  await load(page.value.current)
-}
-
-async function offline(id: number) {
-  await announcementApi.offline(id)
-  message.value = '公告已下线'
-  await load(page.value.current)
-}
-
-async function remove(id: number) {
-  await announcementApi.remove(id)
-  message.value = '公告已删除'
-  await load(page.value.current)
-}
-
-function formatTime(value?: string) {
-  return value ? new Date(value).toLocaleString() : '-'
+function formatTime(value?: string) { return value ? new Date(value).toLocaleString() : '-' }
+function statusCls(status: string) {
+  if (status === 'PUBLISHED') return 'bg-success-bg text-success'
+  if (status === 'OFFLINE') return 'bg-neutral-100 text-neutral-500'
+  return 'bg-warning-bg text-warning'
 }
 
 onMounted(() => load())
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-950 px-6 py-8 text-white">
-    <div class="mx-auto max-w-7xl">
-      <nav class="mb-8 flex items-center justify-between">
-        <RouterLink to="/admin" class="text-sm text-cyan-200">返回后台</RouterLink>
-        <RouterLink to="/announcements" class="rounded-full border border-white/10 px-5 py-2 text-sm hover:bg-white/10">公告中心</RouterLink>
-      </nav>
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mb-6">
+        <p class="text-sm font-medium text-primary-600">管理员公告管理</p>
+        <h1 class="mt-1 text-2xl font-bold text-neutral-900">公告发布、编辑与下线</h1>
+        <p class="mt-1 text-sm text-neutral-500">公告面向前台公告中心展示，管理操作由后端管理员权限校验。</p>
+      </div>
 
-      <section class="rounded-[2rem] border border-white/10 bg-white/8 p-8 backdrop-blur">
-        <div class="flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <p class="text-sm text-cyan-200">管理员公告管理</p>
-            <h1 class="mt-2 text-4xl font-black">公告发布、编辑与下线</h1>
-            <p class="mt-3 max-w-3xl text-slate-300">公告面向前台公告中心展示，管理操作由后端管理员权限校验。</p>
-          </div>
-          <div class="rounded-[2rem] border border-cyan-300/30 bg-cyan-300/10 p-5 text-cyan-100">
-            <Megaphone class="h-10 w-10" />
-          </div>
-        </div>
-
-        <form class="mt-8 grid gap-4 lg:grid-cols-[1fr_180px_180px_140px]" @submit.prevent="load(1)">
-          <input v-model="filters.keyword" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="搜索公告标题" />
-          <select v-model="filters.type" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+      <!-- Filters -->
+      <div class="mb-6 rounded-xl border border-border bg-white p-4 shadow-sm">
+        <form class="flex flex-wrap gap-3" @submit.prevent="load(1)">
+          <input v-model="filters.keyword" :class="inputCls + ' flex-1 min-w-40'" placeholder="搜索公告标题" />
+          <select v-model="filters.type" :class="inputCls + ' w-36'">
             <option value="">全部类型</option>
             <option value="SYSTEM">系统公告</option>
             <option value="COURSE">课程通知</option>
             <option value="LIVE">直播通知</option>
             <option value="EXAM">考试提醒</option>
           </select>
-          <select v-model="filters.status" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+          <select v-model="filters.status" :class="inputCls + ' w-36'">
             <option value="">全部状态</option>
             <option value="DRAFT">草稿</option>
             <option value="PUBLISHED">已发布</option>
             <option value="OFFLINE">已下线</option>
           </select>
-          <button class="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-200">
+          <button class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
             <Search class="h-4 w-4" />筛选
           </button>
         </form>
-        <p v-if="message" class="mt-4 rounded-2xl bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100">{{ message }}</p>
-        <p v-if="error" class="mt-4 rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-100">{{ error }}</p>
-      </section>
+        <div v-if="message" class="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ message }}</div>
+        <div v-if="error" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ error }}</div>
+      </div>
 
-      <section class="mt-8 rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur">
-        <h2 class="text-2xl font-black">新建公告</h2>
-        <form class="mt-5 grid gap-4" @submit.prevent="createAnnouncement">
-          <div class="grid gap-4 md:grid-cols-[1fr_180px_180px_140px]">
-            <input v-model="form.title" required class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="公告标题" />
-            <select v-model="form.type" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+      <!-- Create form -->
+      <div class="mb-6 rounded-xl border border-border bg-white p-5 shadow-sm">
+        <h2 class="mb-4 font-semibold text-neutral-900">新建公告</h2>
+        <form class="grid gap-3" @submit.prevent="createAnnouncement">
+          <div class="grid gap-3 md:grid-cols-[1fr_150px_150px_100px]">
+            <input v-model="form.title" required :class="inputCls" placeholder="公告标题" />
+            <select v-model="form.type" :class="inputCls">
               <option value="SYSTEM">系统公告</option>
               <option value="COURSE">课程通知</option>
               <option value="LIVE">直播通知</option>
               <option value="EXAM">考试提醒</option>
             </select>
-            <select v-model="form.status" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+            <select v-model="form.status" :class="inputCls">
               <option value="DRAFT">草稿</option>
               <option value="PUBLISHED">直接发布</option>
             </select>
-            <input v-model.number="form.pinned" min="0" type="number" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="置顶排序" />
+            <input v-model.number="form.pinned" min="0" type="number" :class="inputCls" placeholder="置顶" />
           </div>
-          <label class="inline-flex w-fit items-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-200">
-            <input v-model="form.syncMessage" type="checkbox" class="h-4 w-4 accent-cyan-300" />
+          <label class="inline-flex w-fit items-center gap-2 text-sm text-neutral-600">
+            <input v-model="form.syncMessage" type="checkbox" class="h-4 w-4 accent-indigo-600" />
             发布时同步站内消息
           </label>
-          <textarea v-model="form.content" required rows="5" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="公告内容" />
-          <button class="inline-flex w-fit items-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-200">
+          <textarea v-model="form.content" required rows="4" class="rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition placeholder:text-neutral-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100" placeholder="公告内容" />
+          <button class="inline-flex h-9 w-fit items-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
             <Plus class="h-4 w-4" />创建公告
           </button>
         </form>
-      </section>
+      </div>
 
-      <section class="mt-8 grid gap-5">
-        <p v-if="loading" class="text-slate-300">公告加载中...</p>
-        <p v-else-if="!page.records.length" class="rounded-[2rem] border border-white/10 bg-white/8 p-8 text-slate-300">暂无公告</p>
-        <article v-for="item in page.records" v-else :key="item.id" class="rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div class="flex flex-wrap gap-3">
-              <span class="inline-flex rounded-full bg-cyan-300/15 px-3 py-1 text-xs font-bold text-cyan-100">{{ typeLabels[item.type || ''] || item.type || '公告' }}</span>
-              <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-200">{{ statusLabels[item.status] || item.status }}</span>
-              <span class="text-xs text-slate-500">{{ formatTime(item.publishTime || item.createdAt) }}</span>
+      <!-- Announcement list -->
+      <div v-if="loading" class="py-6 text-center text-sm text-neutral-400">公告加载中...</div>
+      <div v-else-if="!page.records.length" class="rounded-xl border border-border bg-white p-8 text-center text-sm text-neutral-400">暂无公告</div>
+      <div v-else class="space-y-4">
+        <article v-for="item in page.records" :key="item.id" class="rounded-xl border border-border bg-white p-5 shadow-sm">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700">{{ typeLabels[item.type || ''] || '公告' }}</span>
+              <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="statusCls(item.status)">{{ statusLabels[item.status] || item.status }}</span>
+              <span class="text-xs text-neutral-400">{{ formatTime(item.publishTime || item.createdAt) }}</span>
             </div>
-            <div class="flex flex-wrap gap-2">
-              <button :disabled="item.status === 'PUBLISHED'" class="rounded-full border border-emerald-300/40 px-3 py-1 text-xs text-emerald-100 disabled:opacity-40" @click="publish(item.id)">发布</button>
-              <button :disabled="item.status === 'OFFLINE'" class="rounded-full border border-amber-300/40 px-3 py-1 text-xs text-amber-100 disabled:opacity-40" @click="offline(item.id)">下线</button>
-              <button class="rounded-full border border-red-300/40 px-3 py-1 text-xs text-red-100" @click="remove(item.id)">删除</button>
+            <div class="flex flex-wrap gap-1.5">
+              <button :disabled="item.status === 'PUBLISHED'" class="rounded border border-emerald-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-40" @click="publish(item.id)">发布</button>
+              <button :disabled="item.status === 'OFFLINE'" class="rounded border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-40" @click="offline(item.id)">下线</button>
+              <button class="rounded border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50" @click="remove(item.id)">删除</button>
             </div>
           </div>
-          <div class="mt-5 grid gap-4">
-            <input v-model="editForms[item.id].title" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 font-bold outline-none focus:border-cyan-300" />
-            <div class="grid gap-4 md:grid-cols-3">
-              <select v-model="editForms[item.id].type" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+          <div class="grid gap-3">
+            <input v-model="editForms[item.id].title" :class="inputCls + ' w-full font-semibold'" />
+            <div class="grid gap-3 md:grid-cols-3">
+              <select v-model="editForms[item.id].type" :class="inputCls">
                 <option value="SYSTEM">系统公告</option>
                 <option value="COURSE">课程通知</option>
                 <option value="LIVE">直播通知</option>
                 <option value="EXAM">考试提醒</option>
               </select>
-              <select v-model="editForms[item.id].status" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300">
+              <select v-model="editForms[item.id].status" :class="inputCls">
                 <option value="DRAFT">草稿</option>
                 <option value="PUBLISHED">已发布</option>
                 <option value="OFFLINE">已下线</option>
               </select>
-              <input v-model.number="editForms[item.id].pinned" min="0" type="number" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" placeholder="置顶排序" />
+              <input v-model.number="editForms[item.id].pinned" min="0" type="number" :class="inputCls" placeholder="置顶排序" />
             </div>
-            <label class="inline-flex w-fit items-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-200">
-              <input v-model="editForms[item.id].syncMessage" type="checkbox" class="h-4 w-4 accent-cyan-300" />
+            <label class="inline-flex w-fit items-center gap-2 text-sm text-neutral-600">
+              <input v-model="editForms[item.id].syncMessage" type="checkbox" class="h-4 w-4 accent-indigo-600" />
               发布时同步站内消息
             </label>
-            <textarea v-model="editForms[item.id].content" rows="4" class="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none focus:border-cyan-300" />
-            <button class="w-fit rounded-full bg-cyan-300 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-200" @click="save(item)">保存修改</button>
+            <textarea v-model="editForms[item.id].content" rows="3" class="rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
+            <button class="inline-flex h-9 w-fit items-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700" @click="save(item)">
+              <Save class="h-4 w-4" />保存修改
+            </button>
           </div>
         </article>
-      </section>
+      </div>
 
-      <div class="mt-8 flex items-center justify-between text-sm text-slate-300">
+      <div class="mt-5 flex items-center justify-between text-xs text-neutral-400">
         <span>共 {{ page.total }} 条</span>
-        <div class="flex gap-2">
-          <button :disabled="page.current <= 1" class="rounded-full border border-white/10 px-4 py-2 disabled:opacity-40" @click="load(page.current - 1)">上一页</button>
-          <button :disabled="page.current * page.size >= page.total" class="rounded-full border border-white/10 px-4 py-2 disabled:opacity-40" @click="load(page.current + 1)">下一页</button>
+        <div class="flex gap-1.5">
+          <button :disabled="page.current <= 1" class="rounded border border-border px-3 py-1.5 disabled:opacity-40 hover:bg-neutral-100" @click="load(page.current - 1)">上一页</button>
+          <button :disabled="page.current * page.size >= page.total" class="rounded border border-border px-3 py-1.5 disabled:opacity-40 hover:bg-neutral-100" @click="load(page.current + 1)">下一页</button>
         </div>
       </div>
-    </div>
-  </main>
+  </div>
 </template>

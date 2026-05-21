@@ -10,6 +10,7 @@ import com.edu.live.mapper.UserMapper;
 import com.edu.live.service.SiteBannerService;
 import com.edu.live.vo.SiteBannerVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -27,24 +28,32 @@ public class SiteBannerServiceImpl implements SiteBannerService {
 
     @Override
     public List<SiteBannerVO> listPublic() {
-        return siteBannerMapper.selectList(new LambdaQueryWrapper<SiteBanner>()
-                .eq(SiteBanner::getStatus, STATUS_ENABLED)
-                .orderByAsc(SiteBanner::getSort)
-                .orderByDesc(SiteBanner::getCreatedAt))
-                .stream()
-                .map(this::toVO)
-                .toList();
+        try {
+            return siteBannerMapper.selectList(new LambdaQueryWrapper<SiteBanner>()
+                    .eq(SiteBanner::getStatus, STATUS_ENABLED)
+                    .orderByAsc(SiteBanner::getSort)
+                    .orderByDesc(SiteBanner::getCreatedAt))
+                    .stream()
+                    .map(this::toVO)
+                    .toList();
+        } catch (DataAccessException e) {
+            return List.of();
+        }
     }
 
     @Override
     public List<SiteBannerVO> listAdmin(String status) {
-        return siteBannerMapper.selectList(new LambdaQueryWrapper<SiteBanner>()
-                .eq(StringUtils.hasText(status), SiteBanner::getStatus, status)
-                .orderByAsc(SiteBanner::getSort)
-                .orderByDesc(SiteBanner::getCreatedAt))
-                .stream()
-                .map(this::toVO)
-                .toList();
+        try {
+            return siteBannerMapper.selectList(new LambdaQueryWrapper<SiteBanner>()
+                    .eq(StringUtils.hasText(status), SiteBanner::getStatus, status)
+                    .orderByAsc(SiteBanner::getSort)
+                    .orderByDesc(SiteBanner::getCreatedAt))
+                    .stream()
+                    .map(this::toVO)
+                    .toList();
+        } catch (DataAccessException e) {
+            return List.of();
+        }
     }
 
     @Override
@@ -99,7 +108,7 @@ public class SiteBannerServiceImpl implements SiteBannerService {
     }
 
     private SiteBannerVO toVO(SiteBanner banner) {
-        User creator = userMapper.selectById(banner.getCreatorId());
+        User creator = banner.getCreatorId() == null ? null : userMapper.selectById(banner.getCreatorId());
         SiteBannerVO vo = new SiteBannerVO();
         vo.setId(banner.getId());
         vo.setTitle(banner.getTitle());
