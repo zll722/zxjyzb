@@ -1,18 +1,19 @@
 ﻿<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { Plus, Save, Trash2 } from 'lucide-vue-next'
-import { apiUrl, bannerApi, type SiteBanner } from '@/lib/api'
+import { ImagePlus, Plus, Save, Trash2 } from 'lucide-vue-next'
+import { bannerApi, type SiteBanner } from '@/lib/api'
 
 const filters = reactive({ status: '' })
-const form = reactive({ title: '', subtitle: '', imageUrl: '', linkUrl: '/', sort: 0, status: 'ENABLED' })
+const form = reactive({ title: '', subtitle: '', imageUrl: '', linkUrl: '', sort: 0, status: 'ENABLED' })
 const editForms = reactive<Record<number, { title: string; subtitle: string; imageUrl: string; linkUrl: string; sort: number; status: 'ENABLED' | 'DISABLED' }>>({})
 const banners = ref<SiteBanner[]>([])
 const loading = ref(false)
 const message = ref('')
 const error = ref('')
+const createUploading = ref(false)
+const editUploading = reactive<Record<number, boolean>>({})
 
 const statusLabels: Record<string, string> = { ENABLED: '展示中', DISABLED: '已隐藏' }
-const sampleImageUrl = apiUrl('/banners/sample-image')
 const inputCls = 'h-9 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100'
 
 async function load() {
@@ -26,11 +27,39 @@ async function load() {
   finally { loading.value = false }
 }
 
+async function handleCreateImageUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  createUploading.value = true
+  try {
+    form.imageUrl = await bannerApi.uploadImage(file)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '图片上传失败'
+  } finally {
+    createUploading.value = false
+    ;(event.target as HTMLInputElement).value = ''
+  }
+}
+
+async function handleEditImageUpload(id: number, event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  editUploading[id] = true
+  try {
+    editForms[id].imageUrl = await bannerApi.uploadImage(file)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '图片上传失败'
+  } finally {
+    editUploading[id] = false
+    ;(event.target as HTMLInputElement).value = ''
+  }
+}
+
 async function createBanner() {
   message.value = ''; error.value = ''
   try {
     await bannerApi.create(form)
-    Object.assign(form, { title: '', subtitle: '', imageUrl: '', linkUrl: '/', sort: 0, status: 'ENABLED' })
+    Object.assign(form, { title: '', subtitle: '', imageUrl: '', linkUrl: '', sort: 0, status: 'ENABLED' })
     message.value = '轮播已创建'; await load()
   } catch (err) { error.value = err instanceof Error ? err.message : '创建失败' }
 }
@@ -81,9 +110,13 @@ onMounted(load)
               <option value="DISABLED">隐藏</option>
             </select>
           </div>
-          <div class="grid gap-3 md:grid-cols-2">
-            <input v-model="form.imageUrl" required :class="inputCls" :placeholder="sampleImageUrl" />
-            <input v-model="form.linkUrl" :class="inputCls" placeholder="跳转地址，如 /courses" />
+          <div class="flex items-center gap-2">
+            <img v-if="form.imageUrl" :src="form.imageUrl" class="h-9 w-16 rounded object-cover border border-border flex-shrink-0" />
+            <label :class="inputCls + ' flex cursor-pointer items-center gap-2 flex-1 ' + (createUploading ? 'opacity-60 pointer-events-none' : '')">
+              <ImagePlus class="h-4 w-4 text-neutral-400 flex-shrink-0" />
+              <span class="truncate text-neutral-500">{{ createUploading ? '上传中…' : form.imageUrl ? '重新上传图片' : '点击上传轮播图片' }}</span>
+              <input class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :disabled="createUploading" @change="handleCreateImageUpload" />
+            </label>
           </div>
           <button class="inline-flex h-9 w-fit items-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700">
             <Plus class="h-4 w-4" />创建轮播
@@ -105,9 +138,12 @@ onMounted(load)
             <div class="grid gap-3">
               <input v-model="editForms[item.id].title" :class="inputCls + ' font-semibold w-full'" />
               <input v-model="editForms[item.id].subtitle" :class="inputCls + ' w-full'" placeholder="副标题" />
-              <div class="grid gap-3 md:grid-cols-[1fr_1fr_100px_140px]">
-                <input v-model="editForms[item.id].imageUrl" :class="inputCls" placeholder="图片 URL" />
-                <input v-model="editForms[item.id].linkUrl" :class="inputCls" placeholder="跳转链接" />
+              <div class="grid gap-3 md:grid-cols-[1fr_100px_140px]">
+                <label :class="inputCls + ' flex cursor-pointer items-center gap-2 ' + (editUploading[item.id] ? 'opacity-60 pointer-events-none' : '')">
+                  <ImagePlus class="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                  <span class="truncate text-neutral-500">{{ editUploading[item.id] ? '上传中…' : '重新上传图片' }}</span>
+                  <input class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :disabled="editUploading[item.id]" @change="handleEditImageUpload(item.id, $event)" />
+                </label>
                 <input v-model.number="editForms[item.id].sort" min="0" type="number" :class="inputCls" />
                 <select v-model="editForms[item.id].status" :class="inputCls">
                   <option value="ENABLED">展示中</option>

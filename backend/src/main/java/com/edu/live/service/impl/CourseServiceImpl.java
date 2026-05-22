@@ -130,8 +130,8 @@ public class CourseServiceImpl implements CourseService {
     @Override
     public void delete(Long teacherId, Long id) {
         Course course = requireTeacherCourse(teacherId, id);
-        if (!CourseStatus.DRAFT.name().equals(course.getStatus())) {
-            throw new BusinessException(400, "仅草稿课程可删除");
+        if (!CourseStatus.DRAFT.name().equals(course.getStatus()) && !CourseStatus.OFFLINE.name().equals(course.getStatus())) {
+            throw new BusinessException(400, "仅草稿或已下线课程可删除");
         }
         courseMapper.deleteById(id);
     }
@@ -171,7 +171,7 @@ public class CourseServiceImpl implements CourseService {
 
 
     @Override
-    public Chapter uploadChapterVideo(Long teacherId, Long courseId, Long chapterId, MultipartFile file) {
+    public Chapter uploadChapterVideo(Long teacherId, Long courseId, Long chapterId, MultipartFile file, Integer duration) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "????????");
         }
@@ -192,6 +192,9 @@ public class CourseServiceImpl implements CourseService {
             throw new BusinessException("????????");
         }
         chapter.setVideoPath(datePath + "/" + fileName);
+        if (duration != null && duration > 0) {
+            chapter.setDuration(duration);
+        }
         chapterMapper.updateById(chapter);
         return chapter;
     }

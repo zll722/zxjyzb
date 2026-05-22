@@ -1,6 +1,7 @@
 package com.edu.live.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.edu.live.common.BusinessException;
 import com.edu.live.common.Result;
 import com.edu.live.dto.ChapterRequest;
 import com.edu.live.dto.CourseRequest;
@@ -15,6 +16,7 @@ import com.edu.live.vo.RecentLearningRecordVO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,11 +33,46 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.Set;
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/courses")
 @RequiredArgsConstructor
 public class CourseController {
+    private static final Set<String> IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
+
     private final CourseService courseService;
+
+    @Value("${file.upload-path}")
+    private String uploadPath;
+
+    @PostMapping("/upload-cover")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<String> uploadCover(@RequestPart("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "封面文件不能为空");
+        }
+        if (!IMAGE_TYPES.contains(file.getContentType())) {
+            throw new BusinessException(400, "封面仅支持 JPG、PNG、WEBP、GIF 格式");
+        }
+        String originalName = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : ".jpg";
+        String datePath = LocalDate.now().toString().replace("-", "/");
+        String fileName = UUID.randomUUID() + ext;
+        Path dir = Path.of(uploadPath, "cover", datePath);
+        try {
+            Files.createDirectories(dir);
+            file.transferTo(dir.resolve(fileName));
+        } catch (IOException e) {
+            throw new BusinessException("封面上传失败");
+        }
+        return Result.success("/uploads/cover/" + datePath + "/" + fileName);
+    }
 
     @GetMapping
     public Result<Page<CourseVO>> page(
@@ -97,8 +134,8 @@ public class CourseController {
 
     @PostMapping("/{courseId}/chapters/{chapterId}/video")
     @PreAuthorize("hasRole('TEACHER')")
-    public Result<Chapter> uploadChapterVideo(@AuthenticationPrincipal User user, @PathVariable Long courseId, @PathVariable Long chapterId, @RequestPart("file") MultipartFile file) {
-        return Result.success(courseService.uploadChapterVideo(user.getId(), courseId, chapterId, file));
+    public Result<Chapter> uploadChapterVideo(@AuthenticationPrincipal User user, @PathVariable Long courseId, @PathVariable Long chapterId, @RequestPart("file") MultipartFile file, @RequestParam(required = false) Integer duration) {
+        return Result.success(courseService.uploadChapterVideo(user.getId(), courseId, chapterId, file, duration));
     }
 
     @GetMapping("/{courseId}/chapters/{chapterId}/stream")

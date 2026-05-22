@@ -287,6 +287,24 @@ public class LiveServiceImpl implements LiveService {
         return request;
     }
 
+    @Override
+    public void deleteRoom(Long teacherId, Long roomId) {
+        LiveRoom room = requireTeacherRoom(teacherId, roomId);
+        if (!LiveRoomStatus.ENDED.name().equals(room.getStatus())) {
+            throw new BusinessException(400, "只能删除已结束的直播间");
+        }
+        liveRoomMapper.deleteById(roomId);
+        liveChatMapper.delete(new LambdaQueryWrapper<LiveChat>().eq(LiveChat::getRoomId, roomId));
+        liveBarrageMapper.delete(new LambdaQueryWrapper<LiveBarrage>().eq(LiveBarrage::getRoomId, roomId));
+        liveMicRequestMapper.delete(new LambdaQueryWrapper<LiveMicRequest>().eq(LiveMicRequest::getRoomId, roomId));
+        List<Long> pollIds = livePollMapper.selectList(new LambdaQueryWrapper<LivePoll>().eq(LivePoll::getRoomId, roomId))
+                .stream().map(LivePoll::getId).toList();
+        if (!pollIds.isEmpty()) {
+            livePollVoteMapper.delete(new LambdaQueryWrapper<LivePollVote>().in(LivePollVote::getPollId, pollIds));
+            livePollMapper.delete(new LambdaQueryWrapper<LivePoll>().eq(LivePoll::getRoomId, roomId));
+        }
+    }
+
     private void rejectBlockedContent(String content) {
         if (!StringUtils.hasText(content)) {
             return;

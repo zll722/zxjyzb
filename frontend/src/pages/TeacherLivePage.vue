@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   Mic, MicOff, MonitorUp, Play, Plus, Radio,
-  Square, Users, Video, Vote, MessageCircle, PhoneOff, X,
+  Square, Trash2, Users, Video, Vote, MessageCircle, PhoneOff, X,
 } from 'lucide-vue-next'
 import type { IAgoraRTCRemoteUser, UID } from 'agora-rtc-sdk-ng'
 import { getToken, liveApi, type LiveMicRequest, type LivePollDetail, type LiveRoom } from '@/lib/api'
@@ -206,6 +206,17 @@ async function endRoom(id: number) {
     showToast(err instanceof Error ? err.message : '结束直播失败')
   }
   await load()
+}
+
+async function deleteRoom(id: number) {
+  if (!confirm('确认删除该直播间？相关聊天记录、弹幕及投票数据将一并删除。')) return
+  try {
+    await liveApi.deleteRoom(id)
+    showToast('直播间已删除')
+    await load()
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : '删除失败')
+  }
 }
 
 async function toggleMic() {
@@ -518,7 +529,13 @@ onBeforeUnmount(() => {
                   <Square class="h-4 w-4" />结束直播
                 </button>
               </template>
-              <span v-else class="rounded-md bg-neutral-100 px-4 py-2 text-sm text-neutral-400">已无法操作</span>
+              <button
+                v-else
+                class="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-danger/30 px-4 text-sm font-medium text-danger transition-all duration-200 hover:bg-danger-bg"
+                @click="deleteRoom(room.id)"
+              >
+                <Trash2 class="h-4 w-4" />删除
+              </button>
             </div>
           </div>
 

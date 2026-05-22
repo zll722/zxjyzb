@@ -23,6 +23,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,6 +67,13 @@ public class LiveController {
     @PreAuthorize("hasRole('TEACHER')")
     public Result<LiveRoom> endRoom(@AuthenticationPrincipal User user, @PathVariable Long id) {
         return Result.success(liveService.endRoom(user.getId(), id));
+    }
+
+    @DeleteMapping("/rooms/{id}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<Void> deleteRoom(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        liveService.deleteRoom(user.getId(), id);
+        return Result.success();
     }
 
     @PostMapping("/rooms/{id}/force-close")

@@ -563,6 +563,11 @@ export const bannerApi = {
   remove(id: number) {
     return request<void>(`/banners/${id}`, { method: 'DELETE' })
   },
+  uploadImage(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request<string>('/banners/upload-image', { method: 'POST', body: formData })
+  },
 }
 
 export const messageApi = {
@@ -652,6 +657,12 @@ export const courseApi = {
   create(payload: { title: string; cover?: string; intro?: string; categoryId: number; price: number }) {
     return request<Course>('/courses', { method: 'POST', body: JSON.stringify(payload) })
   },
+  update(id: number, payload: { title: string; cover?: string; intro?: string; categoryId: number; price: number }) {
+    return request<Course>(`/courses/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+  },
+  remove(id: number) {
+    return request<void>(`/courses/${id}`, { method: 'DELETE' })
+  },
   submitReview(id: number) {
     return request<void>(`/courses/${id}/submit-review`, { method: 'POST' })
   },
@@ -661,13 +672,24 @@ export const courseApi = {
   createChapter(courseId: number, payload: { title: string; videoPath?: string; duration?: number; sort?: number }) {
     return request<Chapter>(`/courses/${courseId}/chapters`, { method: 'POST', body: JSON.stringify(payload) })
   },
-  uploadChapterVideo(courseId: number, chapterId: number, file: File) {
+  deleteChapter(courseId: number, chapterId: number) {
+    return request<void>(`/courses/${courseId}/chapters/${chapterId}`, { method: 'DELETE' })
+  },
+  uploadCover(file: File) {
     const formData = new FormData()
     formData.append('file', file)
-    return request<Chapter>(`/courses/${courseId}/chapters/${chapterId}/video`, { method: 'POST', body: formData })
+    return request<string>('/courses/upload-cover', { method: 'POST', body: formData })
+  },
+  uploadChapterVideo(courseId: number, chapterId: number, file: File, duration?: number) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const query = duration && duration > 0 ? `?duration=${Math.round(duration)}` : ''
+    return request<Chapter>(`/courses/${courseId}/chapters/${chapterId}/video${query}`, { method: 'POST', body: formData })
   },
   chapterVideoUrl(courseId: number, chapterId: number) {
-    return apiUrl(`/courses/${courseId}/chapters/${chapterId}/stream`)
+    const token = getToken()
+    const query = token ? `?token=${encodeURIComponent(token)}` : ''
+    return apiUrl(`/courses/${courseId}/chapters/${chapterId}/stream${query}`)
   },
   favorite(id: number) {
     return request<void>(`/courses/${id}/favorite`, { method: 'POST' })
@@ -769,6 +791,9 @@ export const liveApi = {
   },
   forceClose(id: number) {
     return request<void>(`/live/rooms/${id}/force-close`, { method: 'POST' })
+  },
+  deleteRoom(id: number) {
+    return request<void>(`/live/rooms/${id}`, { method: 'DELETE' })
   },
 }
 

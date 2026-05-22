@@ -45,11 +45,16 @@ public class LiveWebSocketHandler extends TextWebSocketHandler {
 
     private void broadcast(Long roomId, String payload) {
         Set<WebSocketSession> sessions = roomSessions.getOrDefault(roomId, Set.of());
+        TextMessage message = new TextMessage(payload);
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
-                try {
-                    session.sendMessage(new TextMessage(payload));
-                } catch (IOException ignored) {
+                // WebSocketSession 不支持并发写入，需对每个 session 加锁
+                synchronized (session) {
+                    try {
+                        session.sendMessage(message);
+                    } catch (IOException e) {
+                        // session 已关闭或写入失败，忽略
+                    }
                 }
             }
         }

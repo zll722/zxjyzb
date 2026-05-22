@@ -53,4 +53,6 @@ public interface LiveService {
     LiveMicRequest handleMic(Long teacherId, Long requestId, boolean approved);
 
     LiveMicRequest endMic(Long userId, Long requestId);
+
+    void deleteRoom(Long teacherId, Long roomId);
 }

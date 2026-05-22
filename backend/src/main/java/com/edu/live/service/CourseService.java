@@ -31,7 +31,7 @@ public interface CourseService {
 
     Chapter createChapter(Long teacherId, Long courseId, ChapterRequest request);
 
-    Chapter uploadChapterVideo(Long teacherId, Long courseId, Long chapterId, MultipartFile file);
+    Chapter uploadChapterVideo(Long teacherId, Long courseId, Long chapterId, MultipartFile file, Integer duration);
 
     ResponseEntity<Resource> streamChapterVideo(Long courseId, Long chapterId, Long userId, HttpServletRequest request);
 
