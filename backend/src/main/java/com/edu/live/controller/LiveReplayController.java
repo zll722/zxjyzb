@@ -45,8 +45,8 @@ public class LiveReplayController {
     }
 
     @GetMapping("/{id}/stream")
-    public ResponseEntity<Resource> stream(@PathVariable Long id, HttpServletRequest request) {
-        return liveReplayService.stream(id, request);
+    public ResponseEntity<Resource> stream(@AuthenticationPrincipal User user, @PathVariable Long id, HttpServletRequest request) {
+        return liveReplayService.stream(id, user == null ? null : user.getId(), request);
     }
 
     @GetMapping("/teacher/mine")

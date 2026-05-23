@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { Clapperboard, PlayCircle } from 'lucide-vue-next'
-import { replayApi, type LiveReplay } from '@/lib/api'
+import { replayApi, formatReplayStatus, type LiveReplay } from '@/lib/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Empty from '@/components/Empty.vue'
 
@@ -36,7 +36,7 @@ onMounted(load)
           </div>
           <div class="p-4">
             <div class="flex items-center justify-between">
-              <span class="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-500">{{ replay.status }}</span>
+              <span class="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-500">{{ formatReplayStatus(replay.status) }}</span>
               <span class="text-xs" :class="replay.videoPath ? 'text-emerald-600' : 'text-neutral-400'">
                 {{ replay.videoPath ? '可播放' : '待上传' }}
               </span>

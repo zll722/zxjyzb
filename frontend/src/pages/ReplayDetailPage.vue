@@ -1,12 +1,18 @@
 ﻿<script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Clapperboard, ChevronLeft } from 'lucide-vue-next'
-import { replayApi, type LiveReplay } from '@/lib/api'
+import { replayApi, getToken, formatReplayStatus, formatDateTime, type LiveReplay } from '@/lib/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 
 const route = useRoute()
 const replay = ref<LiveReplay | null>(null)
+
+const videoSrc = computed(() => {
+  if (!replay.value?.playUrl) return null
+  const token = getToken()
+  return token ? `${replay.value.playUrl}?token=${encodeURIComponent(token)}` : replay.value.playUrl
+})
 
 async function load() {
   replay.value = await replayApi.detail(Number(route.params.id))
@@ -25,7 +31,7 @@ onMounted(load)
       <div v-if="replay" class="grid gap-6 lg:grid-cols-[1fr_360px]">
         <!-- Video player -->
         <div class="overflow-hidden rounded-xl border border-border bg-black shadow-sm">
-          <video v-if="replay.playUrl" class="aspect-video w-full bg-black" :src="replay.playUrl" controls preload="metadata" />
+          <video v-if="videoSrc" class="aspect-video w-full bg-black" :src="videoSrc" controls preload="metadata" />
           <div v-else class="grid aspect-video place-items-center bg-neutral-950 text-center">
             <div>
               <Clapperboard class="mx-auto h-14 w-14 text-neutral-600" />
@@ -42,7 +48,7 @@ onMounted(load)
                 'bg-success-bg text-success': replay.status === 'PUBLISHED',
                 'bg-neutral-100 text-neutral-500': replay.status !== 'PUBLISHED',
               }">
-              {{ replay.status }}
+              {{ formatReplayStatus(replay.status) }}
             </span>
             <span v-if="replay.roomTitle" class="text-xs text-neutral-400">{{ replay.roomTitle }}</span>
           </div>
@@ -59,7 +65,7 @@ onMounted(load)
             </div>
             <div class="flex justify-between">
               <dt class="text-neutral-500">发布时间</dt>
-              <dd class="font-medium text-neutral-800">{{ replay.createdAt || '-' }}</dd>
+              <dd class="font-medium text-neutral-800">{{ formatDateTime(replay.createdAt) }}</dd>
             </div>
           </dl>
         </aside>

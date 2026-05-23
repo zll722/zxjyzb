@@ -26,5 +26,5 @@ public interface LiveReplayService {
 
     void ensureReplayForEndedRoom(Long roomId);
 
-    ResponseEntity<Resource> stream(Long id, HttpServletRequest request);
+    ResponseEntity<Resource> stream(Long id, Long userId, HttpServletRequest request);
 }

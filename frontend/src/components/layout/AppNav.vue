@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { Bell, BookOpen, LayoutDashboard, LogOut, Menu, Megaphone, ShieldCheck, UserRound, Video, X } from 'lucide-vue-next'
+import { Bell, BookOpen, Clapperboard, LayoutDashboard, LogOut, Menu, Megaphone, ShieldCheck, UserRound, Video, X } from 'lucide-vue-next'
 import { useAuth } from '@/composables/useAuth'
 
 const router = useRouter()
@@ -18,6 +18,7 @@ function logout() {
 const navLinks = [
   { to: '/courses',       label: '课程', icon: BookOpen },
   { to: '/live',          label: '直播', icon: Video },
+  { to: '/replays',       label: '回放', icon: Clapperboard },
   { to: '/announcements', label: '公告', icon: Megaphone },
 ]
 </script>

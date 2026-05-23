@@ -1,6 +1,7 @@
 package com.edu.live.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.edu.live.common.BusinessException;
 import com.edu.live.common.Result;
 import com.edu.live.dto.LiveMessageRequest;
 import com.edu.live.dto.LivePollRequest;
@@ -19,24 +20,39 @@ import com.edu.live.vo.LivePollVO;
 import com.edu.live.vo.LiveRoomVO;
 import jakarta.validation.Valid;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/live")
 @RequiredArgsConstructor
 public class LiveController {
+    private static final Set<String> IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
+
     private final LiveService liveService;
+
+    @Value("${file.upload-path}")
+    private String uploadPath;
 
     @GetMapping("/rooms")
     public Result<Page<LiveRoomVO>> pageRooms(@RequestParam(defaultValue = "1") long current,
@@ -51,10 +67,39 @@ public class LiveController {
         return Result.success(liveService.detail(id));
     }
 
+    @PostMapping("/upload-cover")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<String> uploadCover(@RequestPart("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "封面文件不能为空");
+        }
+        if (!IMAGE_TYPES.contains(file.getContentType())) {
+            throw new BusinessException(400, "封面仅支持 JPG、PNG、WEBP、GIF 格式");
+        }
+        String originalName = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : ".jpg";
+        String datePath = LocalDate.now().toString().replace("-", "/");
+        String fileName = UUID.randomUUID() + ext;
+        Path dir = Path.of(uploadPath, "live-cover", datePath);
+        try {
+            Files.createDirectories(dir);
+            file.transferTo(dir.resolve(fileName));
+        } catch (IOException e) {
+            throw new BusinessException("封面上传失败");
+        }
+        return Result.success("/uploads/live-cover/" + datePath + "/" + fileName);
+    }
+
     @PostMapping("/rooms")
     @PreAuthorize("hasRole('TEACHER')")
     public Result<LiveRoom> createRoom(@AuthenticationPrincipal User user, @Valid @RequestBody LiveRoomRequest request) {
         return Result.success(liveService.createRoom(user.getId(), request));
+    }
+
+    @PutMapping("/rooms/{id}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<LiveRoom> updateRoom(@AuthenticationPrincipal User user, @PathVariable Long id, @Valid @RequestBody LiveRoomRequest request) {
+        return Result.success(liveService.updateRoom(user.getId(), id, request));
     }
 
     @PostMapping("/rooms/{id}/start")

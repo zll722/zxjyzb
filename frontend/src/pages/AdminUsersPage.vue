@@ -1,6 +1,6 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { KeyRound, Plus, RotateCw, Search, Trash2, UserCheck, UserX } from 'lucide-vue-next'
+import { KeyRound, Plus, RotateCw, Search, Trash2, UserCheck, UserX, X } from 'lucide-vue-next'
 import { adminApi, type AdminUser, type PageResult, type UserRole } from '@/lib/api'
 
 const filters    = reactive<{ role: UserRole | ''; status: number | ''; keyword: string }>({ role: '', status: '', keyword: '' })
@@ -13,6 +13,10 @@ const loading     = ref(false)
 const message     = ref('')
 const error       = ref('')
 
+// Modal state
+const createModalOpen = ref(false)
+const resetModalOpen  = ref(false)
+
 const roleLabels: Record<UserRole, string> = { ADMIN: '管理员', TEACHER: '教师', STUDENT: '学生' }
 const inputCls = 'h-10 rounded-md border border-border bg-white px-3 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15'
 
@@ -21,6 +25,11 @@ async function load(current = 1) {
   try { page.value = await adminApi.users({ current, size: page.value.size, ...filters }) }
   catch (err) { error.value = err instanceof Error ? err.message : '用户列表加载失败' }
   finally { loading.value = false }
+}
+
+function openCreateModal() {
+  Object.assign(createForm, { username: '', password: '', email: '', bio: '', teachingYears: 0, expertise: '' })
+  createModalOpen.value = true
 }
 
 async function createUser() {
@@ -33,7 +42,7 @@ async function createUser() {
       await adminApi.createAdmin({ username: createForm.username, password: createForm.password, email: createForm.email })
       message.value = '管理员账号已创建'
     }
-    Object.assign(createForm, { username: '', password: '', email: '', bio: '', teachingYears: 0, expertise: '' })
+    createModalOpen.value = false
     await load(1)
   } catch (err) { error.value = err instanceof Error ? err.message : '账号创建失败' }
 }
@@ -48,8 +57,9 @@ async function toggleStatus(user: AdminUser) {
   } catch (err) { error.value = err instanceof Error ? err.message : '用户状态更新失败' }
 }
 
-function openReset(user: AdminUser) {
+function openResetModal(user: AdminUser) {
   resetForm.userId = user.id; resetForm.username = user.username; resetForm.newPassword = ''
+  resetModalOpen.value = true
 }
 
 async function resetPassword() {
@@ -58,6 +68,7 @@ async function resetPassword() {
   try {
     await adminApi.resetUserPassword(resetForm.userId, { newPassword: resetForm.newPassword })
     message.value = '密码已重置'
+    resetModalOpen.value = false
     Object.assign(resetForm, { userId: 0, username: '', newPassword: '' })
   } catch (err) { error.value = err instanceof Error ? err.message : '密码重置失败' }
 }
@@ -69,7 +80,6 @@ async function deleteUser(user: AdminUser) {
     await adminApi.deleteUser(user.id)
     message.value = '用户已删除'
     if (selected.value?.id === user.id) selected.value = null
-    if (resetForm.userId === user.id) resetForm.userId = 0
     await load(page.value.current)
   } catch (err) { error.value = err instanceof Error ? err.message : '用户删除失败' }
 }
@@ -108,68 +118,37 @@ onMounted(() => load())
 
     <!-- Filter bar -->
     <div class="mb-6 rounded-xl border border-border bg-white p-4 shadow-sm">
-      <form class="flex flex-wrap gap-3" @submit.prevent="load(1)">
-        <select v-model="filters.role" :class="inputCls + ' w-36'">
-          <option value="">全部角色</option>
-          <option value="ADMIN">管理员</option>
-          <option value="TEACHER">教师</option>
-          <option value="STUDENT">学生</option>
-        </select>
-        <select v-model="filters.status" :class="inputCls + ' w-36'">
-          <option value="">全部状态</option>
-          <option :value="1">启用</option>
-          <option :value="0">禁用</option>
-        </select>
-        <input v-model="filters.keyword" :class="inputCls + ' min-w-40 flex-1'" placeholder="用户名或邮箱" />
-        <button class="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500">
-          <Search class="h-4 w-4" />筛选
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <form class="flex flex-1 flex-wrap gap-3" @submit.prevent="load(1)">
+          <select v-model="filters.role" :class="inputCls + ' w-36'">
+            <option value="">全部角色</option>
+            <option value="ADMIN">管理员</option>
+            <option value="TEACHER">教师</option>
+            <option value="STUDENT">学生</option>
+          </select>
+          <select v-model="filters.status" :class="inputCls + ' w-36'">
+            <option value="">全部状态</option>
+            <option :value="1">启用</option>
+            <option :value="0">禁用</option>
+          </select>
+          <input v-model="filters.keyword" :class="inputCls + ' min-w-40 flex-1'" placeholder="用户名或邮箱" />
+          <button class="inline-flex h-10 items-center gap-1.5 rounded-md bg-neutral-100 px-4 text-sm font-medium text-neutral-700 transition hover:bg-neutral-200">
+            <Search class="h-4 w-4" />筛选
+          </button>
+        </form>
+        <button
+          class="inline-flex h-10 items-center gap-2 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500"
+          @click="openCreateModal"
+        >
+          <Plus class="h-4 w-4" />创建账号
         </button>
-      </form>
+      </div>
       <div v-if="message" class="mt-3 rounded-md bg-success-bg px-3 py-2 text-sm text-success">{{ message }}</div>
       <div v-if="error"   class="mt-3 rounded-md bg-danger-bg  px-3 py-2 text-sm text-danger">{{ error }}</div>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
       <div class="space-y-4">
-
-        <!-- Create form -->
-        <form class="rounded-xl border border-border bg-white p-5 shadow-sm" @submit.prevent="createUser">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p class="text-xs text-neutral-400">创建账号</p>
-              <h2 class="font-semibold text-neutral-900">教师与子管理员</h2>
-            </div>
-            <select v-model="createForm.role" :class="inputCls + ' w-36'">
-              <option value="TEACHER">教师账号</option>
-              <option value="ADMIN">管理员账号</option>
-            </select>
-          </div>
-          <div class="mt-4 grid gap-3 md:grid-cols-3">
-            <input v-model="createForm.username" required minlength="3" maxlength="50" :class="inputCls" placeholder="用户名" />
-            <input v-model="createForm.email"    required type="email"  :class="inputCls" placeholder="邮箱" />
-            <input v-model="createForm.password" required type="password" minlength="6" maxlength="50" :class="inputCls" placeholder="初始密码" />
-          </div>
-          <div v-if="createForm.role === 'TEACHER'" class="mt-3 grid gap-3 md:grid-cols-3">
-            <input v-model="createForm.bio"                          :class="inputCls" placeholder="教师简介" />
-            <input v-model.number="createForm.teachingYears" type="number" min="0" :class="inputCls" placeholder="教龄（年）" />
-            <input v-model="createForm.expertise"                    :class="inputCls" placeholder="擅长方向" />
-          </div>
-          <button class="mt-4 inline-flex h-10 items-center gap-1.5 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500">
-            <Plus class="h-4 w-4" />{{ createForm.role === 'TEACHER' ? '创建教师' : '创建管理员' }}
-          </button>
-        </form>
-
-        <!-- Reset password — primary-50 border instead of amber -->
-        <div v-if="resetForm.userId" class="rounded-xl border border-primary-200 bg-primary-50 p-4">
-          <p class="text-sm font-medium text-primary-800">重置「{{ resetForm.username }}」的密码</p>
-          <form class="mt-3 flex gap-2" @submit.prevent="resetPassword">
-            <input v-model="resetForm.newPassword" required type="password" minlength="6" maxlength="50" :class="inputCls + ' flex-1 bg-white'" placeholder="新密码" />
-            <button class="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary-600 px-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500">
-              <KeyRound class="h-4 w-4" />确认
-            </button>
-          </form>
-        </div>
-
         <!-- User table -->
         <div class="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
           <div class="grid grid-cols-[1fr_1fr_100px_90px_auto] gap-4 border-b border-border bg-neutral-50 px-4 py-3 text-xs font-medium text-neutral-500">
@@ -204,7 +183,7 @@ onMounted(() => load())
               </button>
               <button
                 class="inline-flex min-h-[28px] items-center gap-1 rounded-md border border-border px-2 py-1 text-xs transition-colors hover:bg-neutral-100"
-                @click="openReset(user)"
+                @click="openResetModal(user)"
               >
                 <KeyRound class="h-3 w-3" />重置
               </button>
@@ -243,21 +222,14 @@ onMounted(() => load())
             <div class="flex justify-between gap-4">
               <dt class="text-neutral-400">状态</dt>
               <dd>
-                <span
-                  class="rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="selected.status === 1 ? 'bg-success-bg text-success' : 'bg-danger-bg text-danger'"
-                >{{ selected.status === 1 ? '启用' : '禁用' }}</span>
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="selected.status === 1 ? 'bg-success-bg text-success' : 'bg-danger-bg text-danger'">{{ selected.status === 1 ? '启用' : '禁用' }}</span>
               </dd>
             </div>
           </dl>
 
           <form v-if="selected.role === 'TEACHER'" class="mt-5 space-y-3" @submit.prevent="saveProfile">
             <h3 class="text-xs font-medium text-neutral-500">教师资料</h3>
-            <textarea
-              v-model="profileForm.bio"
-              class="h-20 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
-              placeholder="教师简介"
-            />
+            <textarea v-model="profileForm.bio" class="h-20 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15" placeholder="教师简介" />
             <input v-model.number="profileForm.teachingYears" type="number" min="0" :class="'w-full ' + inputCls" placeholder="教学年限" />
             <input v-model="profileForm.expertise" :class="'w-full ' + inputCls" placeholder="专长" />
             <button class="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500">
@@ -271,5 +243,94 @@ onMounted(() => load())
         <p v-else class="text-sm text-neutral-400">点击左侧用户查看详情</p>
       </aside>
     </div>
+
+    <!-- Create Account Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="createModalOpen" class="fixed inset-0 z-[70] flex items-center justify-center p-4" @keydown.esc="createModalOpen = false">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="createModalOpen = false" />
+          <div class="modal-panel relative w-full max-w-lg rounded-2xl border border-border bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 class="text-base font-semibold text-neutral-900">创建账号</h2>
+              <button class="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100" @click="createModalOpen = false"><X class="h-4 w-4" /></button>
+            </div>
+            <form class="space-y-4 p-6" @submit.prevent="createUser">
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-neutral-700">账号类型</label>
+                <select v-model="createForm.role" :class="inputCls + ' w-full'">
+                  <option value="TEACHER">教师账号</option>
+                  <option value="ADMIN">管理员账号</option>
+                </select>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-neutral-700">用户名 <span class="text-danger">*</span></label>
+                  <input v-model="createForm.username" required minlength="3" maxlength="50" :class="inputCls + ' w-full'" placeholder="用户名" />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-neutral-700">邮箱 <span class="text-danger">*</span></label>
+                  <input v-model="createForm.email" required type="email" :class="inputCls + ' w-full'" placeholder="邮箱" />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-neutral-700">初始密码 <span class="text-danger">*</span></label>
+                  <input v-model="createForm.password" required type="password" minlength="6" maxlength="50" :class="inputCls + ' w-full'" placeholder="初始密码" />
+                </div>
+              </div>
+              <div v-if="createForm.role === 'TEACHER'" class="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-neutral-700">教师简介</label>
+                  <input v-model="createForm.bio" :class="inputCls + ' w-full'" placeholder="教师简介" />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-neutral-700">教龄（年）</label>
+                  <input v-model.number="createForm.teachingYears" type="number" min="0" :class="inputCls + ' w-full'" placeholder="0" />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-neutral-700">擅长方向</label>
+                  <input v-model="createForm.expertise" :class="inputCls + ' w-full'" placeholder="擅长方向" />
+                </div>
+              </div>
+              <div class="flex justify-end gap-3 pt-2">
+                <button type="button" class="rounded-md border border-border px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50" @click="createModalOpen = false">取消</button>
+                <button type="submit" class="rounded-md bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500">{{ createForm.role === 'TEACHER' ? '创建教师' : '创建管理员' }}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Reset Password Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="resetModalOpen" class="fixed inset-0 z-[70] flex items-center justify-center p-4" @keydown.esc="resetModalOpen = false">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="resetModalOpen = false" />
+          <div class="modal-panel relative w-full max-w-sm rounded-2xl border border-border bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 class="text-base font-semibold text-neutral-900">重置密码</h2>
+              <button class="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100" @click="resetModalOpen = false"><X class="h-4 w-4" /></button>
+            </div>
+            <form class="space-y-4 p-6" @submit.prevent="resetPassword">
+              <p class="text-sm text-neutral-600">为用户 <span class="font-semibold text-neutral-900">{{ resetForm.username }}</span> 设置新密码</p>
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-neutral-700">新密码 <span class="text-danger">*</span></label>
+                <input v-model="resetForm.newPassword" required type="password" minlength="6" maxlength="50" :class="inputCls + ' w-full'" placeholder="输入新密码（至少6位）" />
+              </div>
+              <div class="flex justify-end gap-3 pt-2">
+                <button type="button" class="rounded-md border border-border px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50" @click="resetModalOpen = false">取消</button>
+                <button type="submit" class="rounded-md bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500">确认重置</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
+.modal-enter-active .modal-panel, .modal-leave-active .modal-panel { transition: transform 0.2s ease, opacity 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from .modal-panel, .modal-leave-to .modal-panel { transform: translateY(12px) scale(0.97); opacity: 0; }
+</style>

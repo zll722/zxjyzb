@@ -744,8 +744,16 @@ export const liveApi = {
   detail(id: number) {
     return request<LiveRoom>(`/live/rooms/${id}`).then(normalizeLiveRoom)
   },
+  uploadCover(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request<string>('/live/upload-cover', { method: 'POST', body: formData })
+  },
   create(payload: { title: string; intro?: string; cover?: string; scheduledTime?: string }) {
     return request<LiveRoom>('/live/rooms', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  update(id: number, payload: { title: string; intro?: string; cover?: string; scheduledTime?: string }) {
+    return request<LiveRoom>(`/live/rooms/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
   },
   start(id: number) {
     return request<LiveRoom>(`/live/rooms/${id}/start`, { method: 'POST' })

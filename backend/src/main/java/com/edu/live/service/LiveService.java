@@ -24,6 +24,8 @@ public interface LiveService {
 
     LiveRoom createRoom(Long teacherId, LiveRoomRequest request);
 
+    LiveRoom updateRoom(Long teacherId, Long roomId, LiveRoomRequest request);
+
     LiveRoom startRoom(Long teacherId, Long roomId);
 
     LiveRoom endRoom(Long teacherId, Long roomId);

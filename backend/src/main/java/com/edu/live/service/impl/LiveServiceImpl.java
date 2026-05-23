@@ -93,6 +93,20 @@ public class LiveServiceImpl implements LiveService {
     }
 
     @Override
+    public LiveRoom updateRoom(Long teacherId, Long roomId, LiveRoomRequest request) {
+        LiveRoom room = requireTeacherRoom(teacherId, roomId);
+        if (!LiveRoomStatus.SCHEDULED.name().equals(room.getStatus())) {
+            throw new BusinessException(400, "只有待开播的直播间才能编辑");
+        }
+        room.setTitle(request.getTitle());
+        room.setCover(request.getCover());
+        room.setIntro(request.getIntro());
+        room.setScheduledTime(request.getScheduledTime());
+        liveRoomMapper.updateById(room);
+        return room;
+    }
+
+    @Override
     public LiveRoom startRoom(Long teacherId, Long roomId) {
         LiveRoom room = requireTeacherRoom(teacherId, roomId);
         room.setStatus(LiveRoomStatus.LIVE.name());

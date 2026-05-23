@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  Mic, MicOff, MonitorUp, Play, Plus, Radio,
+  ImagePlus, Mic, MicOff, MonitorUp, Pencil, Play, Plus, Radio,
   Square, Trash2, Users, Video, Vote, MessageCircle, PhoneOff, X,
 } from 'lucide-vue-next'
 import type { IAgoraRTCRemoteUser, UID } from 'agora-rtc-sdk-ng'
@@ -17,7 +17,7 @@ const micRequests = reactive<Record<number, LiveMicRequest[]>>({})
 const cohostVideos = reactive<Record<string, HTMLElement | null>>({})
 const cohostUsers = ref<IAgoraRTCRemoteUser[]>([])
 const sockets = new Map<number, WebSocket>()
-const form = reactive({ title: '', intro: '' })
+const form = reactive({ title: '', intro: '', cover: '' })
 const pollForms = reactive<Record<number, { question: string; optionsText: string }>>({})
 const toast = ref('')
 const toastTimer = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -31,6 +31,12 @@ const chatMessages = ref<{ username: string; content: string; time: string; isBa
 const chatListRef = ref<HTMLElement | null>(null)
 const onlineCount = ref(0)
 const pollModalOpen = ref(false)
+// 创建/编辑弹窗状态
+const roomModalOpen = ref(false)
+const editingRoom = ref<LiveRoom | null>(null)
+const coverPreview = ref('')
+const coverUploading = ref(false)
+const coverInputRef = ref<HTMLInputElement | null>(null)
 let teacherSession: TeacherAgoraSession | null = null
 
 function showToast(msg: string) {
@@ -135,12 +141,62 @@ async function load() {
   })
 }
 
-async function createRoom() {
+function openCreateModal() {
+  editingRoom.value = null
+  form.title = ''
+  form.intro = ''
+  form.cover = ''
+  coverPreview.value = ''
+  roomModalOpen.value = true
+}
+
+function openEditModal(room: LiveRoom) {
+  editingRoom.value = room
+  form.title = room.title
+  form.intro = room.intro ?? ''
+  form.cover = room.cover ?? ''
+  coverPreview.value = room.cover ?? ''
+  roomModalOpen.value = true
+}
+
+function closeRoomModal() {
+  roomModalOpen.value = false
+  editingRoom.value = null
+  coverPreview.value = ''
+}
+
+async function handleCoverChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  coverUploading.value = true
+  try {
+    const url = await liveApi.uploadCover(file)
+    form.cover = url
+    coverPreview.value = url
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : '封面上传失败')
+  } finally {
+    coverUploading.value = false
+    if (coverInputRef.value) coverInputRef.value.value = ''
+  }
+}
+
+async function submitRoomModal() {
   if (!form.title.trim()) return
-  await liveApi.create({ title: form.title, intro: form.intro })
-  form.title = ''; form.intro = ''
-  showToast('直播间已创建')
-  await load()
+  try {
+    if (editingRoom.value) {
+      await liveApi.update(editingRoom.value.id, { title: form.title, intro: form.intro, cover: form.cover || undefined })
+      showToast('直播间已更新')
+    } else {
+      await liveApi.create({ title: form.title, intro: form.intro, cover: form.cover || undefined })
+      showToast('直播间已创建')
+    }
+    closeRoomModal()
+    await load()
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : '操作失败')
+  }
 }
 
 async function releaseTeacherSession() {
@@ -449,30 +505,14 @@ onBeforeUnmount(() => {
         <h1 class="mt-1 text-2xl font-semibold text-neutral-900">直播管理中心</h1>
       </div>
 
-      <!-- Create form -->
-      <div class="mb-8 rounded-xl border border-border bg-white p-6 shadow-sm">
-        <h2 class="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900">
-          <Plus class="h-4 w-4 text-primary-600" />新建直播间
-        </h2>
-        <form class="grid gap-3 sm:grid-cols-[1fr_1fr_auto]" @submit.prevent="createRoom">
-          <input
-            v-model="form.title"
-            required
-            placeholder="直播标题 *"
-            class="h-10 rounded-md border border-border bg-white px-3 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
-          />
-          <input
-            v-model="form.intro"
-            placeholder="直播简介（可选）"
-            class="h-10 rounded-md border border-border bg-white px-3 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
-          />
-          <button
-            type="submit"
-            class="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary-600 px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500"
-          >
-            <Plus class="h-4 w-4" />创建
-          </button>
-        </form>
+      <!-- Create button -->
+      <div class="mb-8">
+        <button
+          class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500"
+          @click="openCreateModal"
+        >
+          <Plus class="h-4 w-4" />新建直播间
+        </button>
       </div>
 
       <!-- Room list -->
@@ -485,8 +525,16 @@ onBeforeUnmount(() => {
           <!-- Room header -->
           <div class="flex flex-wrap items-center justify-between gap-3 p-5">
             <div class="flex items-center gap-3">
-              <div class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-50">
-                <Radio class="h-5 w-5 text-primary-600" />
+              <div class="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-primary-50">
+                <img
+                  v-if="room.cover"
+                  :src="room.cover"
+                  alt="封面"
+                  class="h-full w-full object-cover"
+                />
+                <div v-else class="flex h-full w-full items-center justify-center">
+                  <Radio class="h-5 w-5 text-primary-600" />
+                </div>
               </div>
               <div>
                 <div class="flex items-center gap-2">
@@ -508,6 +556,13 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="flex flex-wrap gap-2">
+              <button
+                v-if="room.status === 'SCHEDULED'"
+                class="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-border px-4 text-sm font-medium text-neutral-700 transition-all duration-200 hover:bg-neutral-50"
+                @click="openEditModal(room)"
+              >
+                <Pencil class="h-4 w-4" />编辑
+              </button>
               <button
                 v-if="room.status === 'SCHEDULED'"
                 class="inline-flex min-h-[40px] items-center gap-1.5 rounded-md bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-primary-500"
@@ -551,6 +606,110 @@ onBeforeUnmount(() => {
         还没有直播间，使用上方表单创建第一个直播间
       </div>
     </div>
+
+    <!-- ====== CREATE / EDIT ROOM MODAL ====== -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="roomModalOpen"
+          class="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          @keydown.esc="closeRoomModal"
+        >
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeRoomModal" />
+          <div class="relative w-full max-w-md rounded-2xl border border-border bg-white shadow-2xl">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 class="text-base font-semibold text-neutral-900">
+                {{ editingRoom ? '编辑直播间' : '新建直播间' }}
+              </h2>
+              <button
+                class="rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100"
+                @click="closeRoomModal"
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+            <!-- Body -->
+            <form class="space-y-4 p-6" @submit.prevent="submitRoomModal">
+              <!-- Cover upload -->
+              <div>
+                <p class="mb-2 text-sm font-medium text-neutral-700">封面图片</p>
+                <div
+                  class="relative flex h-36 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-neutral-50 transition hover:border-primary-400 hover:bg-primary-50"
+                  @click="coverInputRef?.click()"
+                >
+                  <img
+                    v-if="coverPreview"
+                    :src="coverPreview"
+                    alt="封面预览"
+                    class="h-full w-full object-cover"
+                  />
+                  <div v-else class="flex flex-col items-center gap-2 text-neutral-400">
+                    <ImagePlus class="h-8 w-8" />
+                    <span class="text-xs">点击上传封面（JPG / PNG / WEBP）</span>
+                  </div>
+                  <div
+                    v-if="coverUploading"
+                    class="absolute inset-0 flex items-center justify-center bg-white/70"
+                  >
+                    <span class="text-xs text-neutral-500">上传中...</span>
+                  </div>
+                  <!-- Remove cover button -->
+                  <button
+                    v-if="coverPreview && !coverUploading"
+                    type="button"
+                    class="absolute right-2 top-2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                    @click.stop="form.cover = ''; coverPreview = ''"
+                  >
+                    <X class="h-3 w-3" />
+                  </button>
+                </div>
+                <input
+                  ref="coverInputRef"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  class="hidden"
+                  @change="handleCoverChange"
+                />
+              </div>
+              <!-- Title -->
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-neutral-700">直播标题 <span class="text-danger">*</span></label>
+                <input
+                  v-model="form.title"
+                  required
+                  placeholder="请输入直播标题"
+                  class="h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
+                />
+              </div>
+              <!-- Intro -->
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-neutral-700">直播简介</label>
+                <textarea
+                  v-model="form.intro"
+                  rows="3"
+                  placeholder="请输入直播简介（可选）"
+                  class="w-full resize-none rounded-md border border-border bg-white px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
+                />
+              </div>
+              <!-- Actions -->
+              <div class="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  class="rounded-md border border-border px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                  @click="closeRoomModal"
+                >取消</button>
+                <button
+                  type="submit"
+                  :disabled="coverUploading"
+                  class="rounded-md bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:opacity-50"
+                >{{ editingRoom ? '保存' : '创建' }}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- ====== POLL MODAL ====== -->
     <Teleport to="body">

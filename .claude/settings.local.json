@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse -Directory)",
+      "Bash(Select-Object -First 20 FullName)",
+      "Bash(grep -i \"\\\\.vue$\")",
+      "mcp__playwright__browser_navigate",
+      "Bash(Start-Process -NoNewWindow -FilePath \"mvn\" -ArgumentList \"spring-boot:run\" -RedirectStandardOutput \"backend.log\" -RedirectStandardError \"backend-err.log\")",
+      "Bash(npm run *)",
+      "Bash(mvn spring-boot:run -q)",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_file_upload",
+      "Bash(Copy-Item *)",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(Get-ChildItem -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(grep -E \"\\\\.\\(vue|ts\\)$\")",
+      "mcp__playwright__browser_tabs"
+    ]
+  }
+}

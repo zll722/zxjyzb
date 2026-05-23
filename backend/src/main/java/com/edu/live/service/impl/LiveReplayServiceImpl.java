@@ -161,9 +161,10 @@ public class LiveReplayServiceImpl implements LiveReplayService {
     }
 
     @Override
-    public ResponseEntity<Resource> stream(Long id, HttpServletRequest request) {
+    public ResponseEntity<Resource> stream(Long id, Long userId, HttpServletRequest request) {
         LiveReplay replay = requireReplay(id);
-        if (!"PUBLISHED".equals(replay.getStatus())) {
+        boolean isOwner = Objects.equals(replay.getTeacherId(), userId);
+        if (!"PUBLISHED".equals(replay.getStatus()) && !isOwner) {
             throw new BusinessException(403, "回放未发布");
         }
         if (!StringUtils.hasText(replay.getVideoPath())) {
